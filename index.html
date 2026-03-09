@@ -697,6 +697,69 @@
             text-shadow: 0 0 5px #000;
         }
 
+        /* Camera Selector */
+        .camera-selector {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(0, 255, 0, 0.3);
+            border-radius: 3px;
+        }
+
+        .selector-label {
+            font-size: 12px;
+            color: #00ff00;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .camera-select {
+            width: 100%;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff00;
+            border-radius: 3px;
+            color: #00ff00;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .camera-select:hover {
+            background: rgba(0, 255, 0, 0.1);
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+        }
+
+        .camera-select:focus {
+            outline: none;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+        }
+
+        .camera-select option {
+            background: #000;
+            color: #00ff00;
+            padding: 10px;
+        }
+
+        .camera-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            padding: 8px;
+            background: rgba(0, 255, 0, 0.1);
+            border-left: 3px solid #00ff00;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+
+        .camera-icon {
+            font-size: 16px;
+        }
+
         /* Animations */
         @keyframes scanline {
             0% { top: 0; }
@@ -874,6 +937,18 @@
             <!-- Camera & Vision -->
             <div class="hud-panel">
                 <div class="panel-title">📹 CAMERA</div>
+                
+                <!-- Camera Selection -->
+                <div class="camera-selector" id="cameraSelector">
+                    <div class="selector-label">Camera Source</div>
+                    <select id="cameraSelect" class="camera-select">
+                        <option value="">Detecting cameras...</option>
+                    </select>
+                    <button class="hud-button" id="refreshCameras" style="margin-top: 10px; width: 100%;">
+                        🔄 REFRESH CAMERAS
+                    </button>
+                </div>
+                
                 <div class="controls-grid">
                     <button class="hud-button" id="startCamera">START CAM</button>
                     <button class="hud-button danger" id="stopCamera" disabled>STOP CAM</button>
