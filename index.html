@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TACTICAL AUTO - Combat Vehicle Control System</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: #000000;
+            color: #00ff00;
+            overflow: hidden;
+            width: 1920px;
+            height: 1080px;
+            position: relative;
+        }
+
+        /* HUD Background Pattern */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 255, 0, 0.03) 2px, rgba(0, 255, 0, 0.03) 4px),
+                repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0, 255, 0, 0.03) 2px, rgba(0, 255, 0, 0.03) 4px);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .hud-container {
+            width: 1920px;
+            height: 1080px;
+            position: relative;
+            display: grid;
+            grid-template-areas:
+                "header header header"
+                "left-panel video right-panel"
+                "footer footer footer";
+            grid-template-columns: 380px 1fr 380px;
+            grid-template-rows: 80px 1fr 140px;
+            gap: 10px;
+            padding: 10px;
+            z-index: 2;
+        }
+
+        /* Header */
+        .hud-header {
+            grid-area: header;
+            background: linear-gradient(180deg, rgba(0, 255, 0, 0.15) 0%, rgba(0, 255, 0, 0.05) 100%);
+            border: 2px solid #00ff00;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 30px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3), inset 0 0 20px rgba(0, 255, 0, 0.1);
+        }
+
+        .system-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 32px;
+            font-weight: 900;
+            color: #00ff00;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            text-shadow: 0 0 10px #00ff00, 0 0 20px #00ff00;
+        }
+
+        .status-indicators {
+            display: flex;
+            gap: 20px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 15px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid #00ff00;
+            border-radius: 3px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .status-light {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ff0000;
+            box-shadow: 0 0 10px #ff0000;
+            animation: pulse 2s infinite;
+        }
+
+        .status-light.active {
+            background: #00ff00;
+            box-shadow: 0 0 10px #00ff00;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* Left Panel */
+        .left-panel {
+            grid-area: left-panel;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+        }
+
+        /* Right Panel */
+        .right-panel {
+            grid-area: right-panel;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+        }
+
+        /* Video Panel */
+        .video-panel {
+            grid-area: video;
+            position: relative;
+            background: #000;
+            border: 3px solid #00ff00;
+            border-radius: 5px;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.4), inset 0 0 30px rgba(0, 255, 0, 0.1);
+        }
+
+        #videoContainer {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* HUD Overlay on Video */
+        .video-hud-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 60px;
+            border: 2px solid #00ff00;
+            border-radius: 50%;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.6);
+        }
+
+        .crosshair::before,
+        .crosshair::after {
+            content: '';
+            position: absolute;
+            background: #00ff00;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.8);
+        }
+
+        .crosshair::before {
+            width: 2px;
+            height: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .crosshair::after {
+            height: 2px;
+            width: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .detection-zone-indicator {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #00ff00;
+            font-size: 18px;
+            font-weight: 700;
+            text-shadow: 0 0 10px #00ff00, 0 0 5px #000;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 20px;
+            border: 1px solid #00ff00;
+            border-radius: 3px;
+        }
+
+        /* HUD Panel Base Style */
+        .hud-panel {
+            background: linear-gradient(135deg, rgba(0, 255, 0, 0.05) 0%, rgba(0, 0, 0, 0.9) 100%);
+            border: 2px solid #00ff00;
+            border-radius: 5px;
+            padding: 15px;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
+            position: relative;
+        }
+
+        .hud-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #00ff00, transparent);
+        }
+
+        .panel-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+            color: #00ff00;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(0, 255, 0, 0.3);
+            text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+        }
+
+        /* Telemetry */
+        .telemetry-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .telemetry-item {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(0, 255, 0, 0.3);
+            border-left: 3px solid #00ff00;
+            padding: 10px;
+            border-radius: 3px;
+        }
+
+        .telemetry-label {
+            font-size: 12px;
+            color: #00ff00;
+            opacity: 0.7;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .telemetry-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            color: #00ff00;
+            text-shadow: 0 0 10px rgba(0, 255, 0, 0.6);
+        }
+
+        .telemetry-value.critical {
+            color: #ff0000;
+            text-shadow: 0 0 10px rgba(255, 0, 0, 0.6);
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50%, 100% { opacity: 1; }
+            25%, 75% { opacity: 0.3; }
+        }
+
+        /* Buttons */
+        .hud-button {
+            background: linear-gradient(135deg, rgba(0, 255, 0, 0.2), rgba(0, 255, 0, 0.05));
+            border: 2px solid #00ff00;
+            color: #00ff00;
+            padding: 12px 20px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 16px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            border-radius: 3px;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+        }
+
+        .hud-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 0, 0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .hud-button:hover::before {
+            left: 100%;
+        }
+
+        .hud-button:hover {
+            background: linear-gradient(135deg, rgba(0, 255, 0, 0.3), rgba(0, 255, 0, 0.1));
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.6);
+            transform: translateY(-2px);
+        }
+
+        .hud-button:active {
+            transform: translateY(0);
+        }
+
+        .hud-button.danger {
+            border-color: #ff0000;
+            color: #ff0000;
+            background: linear-gradient(135deg, rgba(255, 0, 0, 0.2), rgba(255, 0, 0, 0.05));
+        }
+
+        .hud-button.danger:hover {
+            background: linear-gradient(135deg, rgba(255, 0, 0, 0.3), rgba(255, 0, 0, 0.1));
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.6);
+        }
+
+        .hud-button.active {
+            background: linear-gradient(135deg, #00ff00, rgba(0, 255, 0, 0.6));
+            color: #000;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.8);
+        }
+
+        .hud-button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        /* Controls Grid */
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        /* Toggle Switch */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(0, 255, 0, 0.3);
+            border-radius: 3px;
+            margin-bottom: 8px;
+        }
+
+        .toggle-label {
+            font-size: 14px;
+            color: #00ff00;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 24px;
+            background: rgba(255, 0, 0, 0.3);
+            border: 2px solid #ff0000;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 16px;
+            height: 16px;
+            background: #ff0000;
+            border-radius: 50%;
+            transition: all 0.3s;
+            box-shadow: 0 0 5px #ff0000;
+        }
+
+        .toggle-switch.active {
+            background: rgba(0, 255, 0, 0.3);
+            border-color: #00ff00;
+        }
+
+        .toggle-switch.active::after {
+            left: 28px;
+            background: #00ff00;
+            box-shadow: 0 0 10px #00ff00;
+        }
+
+        /* Event Log */
+        .event-log {
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(0, 255, 0, 0.3);
+            border-radius: 3px;
+            height: 250px;
+            overflow-y: auto;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        .event-log::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .event-log::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .event-log::-webkit-scrollbar-thumb {
+            background: #00ff00;
+            border-radius: 4px;
+        }
+
+        .log-entry {
+            margin-bottom: 6px;
+            padding: 4px;
+            border-left: 2px solid #00ff00;
+            padding-left: 8px;
+        }
+
+        .log-entry.error {
+            border-left-color: #ff0000;
+            color: #ff0000;
+        }
+
+        .log-entry.warning {
+            border-left-color: #ffff00;
+            color: #ffff00;
+        }
+
+        .log-entry.info {
+            border-left-color: #00ffff;
+            color: #00ffff;
+        }
+
+        .log-entry.success {
+            border-left-color: #00ff00;
+            color: #00ff00;
+        }
+
+        .log-timestamp {
+            color: rgba(255, 255, 255, 0.5);
+            margin-right: 10px;
+        }
+
+        /* Color Selector */
+        .color-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .color-option {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(0, 255, 0, 0.3);
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .color-option:hover {
+            background: rgba(0, 255, 0, 0.1);
+            border-color: #00ff00;
+        }
+
+        .color-option.selected {
+            background: rgba(0, 255, 0, 0.2);
+            border-color: #00ff00;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+        }
+
+        .color-preview {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+            margin-right: 10px;
+            border: 1px solid #00ff00;
+        }
+
+        .color-name {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Slider */
+        .slider-container {
+            margin: 15px 0;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .slider-value {
+            font-family: 'Orbitron', sans-serif;
+            color: #00ff00;
+            text-shadow: 0 0 5px rgba(0, 255, 0, 0.6);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid #00ff00;
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #00ff00;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px #00ff00;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: #00ff00;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px #00ff00;
+            border: none;
+        }
+
+        /* Footer */
+        .hud-footer {
+            grid-area: footer;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+        }
+
+        /* Detection Display */
+        .detection-display {
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(0, 255, 0, 0.3);
+            border-radius: 3px;
+            padding: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .detection-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            margin-bottom: 6px;
+            background: rgba(0, 255, 0, 0.1);
+            border-left: 3px solid #00ff00;
+            border-radius: 3px;
+            font-size: 13px;
+        }
+
+        .detection-item.critical {
+            border-left-color: #ff0000;
+            background: rgba(255, 0, 0, 0.1);
+            animation: blink 1s infinite;
+        }
+
+        .detection-distance {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            color: #00ff00;
+        }
+
+        /* Directional Control */
+        .direction-control {
+            display: grid;
+            grid-template-areas:
+                ". up ."
+                "left stop right"
+                ". down .";
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 5px;
+            padding: 10px;
+        }
+
+        .dir-btn {
+            width: 100%;
+            height: 50px;
+            background: rgba(0, 255, 0, 0.1);
+            border: 2px solid #00ff00;
+            color: #00ff00;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-radius: 3px;
+        }
+
+        .dir-btn:hover {
+            background: rgba(0, 255, 0, 0.3);
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.6);
+        }
+
+        .dir-btn:active {
+            background: rgba(0, 255, 0, 0.5);
+        }
+
+        .dir-btn.stop {
+            background: rgba(255, 0, 0, 0.2);
+            border-color: #ff0000;
+            color: #ff0000;
+        }
+
+        .dir-btn.stop:hover {
+            background: rgba(255, 0, 0, 0.4);
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
+        }
+
+        #forward { grid-area: up; }
+        #left { grid-area: left; }
+        #stopBtn { grid-area: stop; }
+        #right { grid-area: right; }
+        #backward { grid-area: down; }
+
+        /* Progress Bar */
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid #00ff00;
+            border-radius: 3px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff00, rgba(0, 255, 0, 0.6));
+            transition: width 0.3s;
+            box-shadow: 0 0 10px #00ff00;
+        }
+
+        .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12px;
+            font-weight: 700;
+            color: #fff;
+            text-shadow: 0 0 5px #000;
+        }
+
+        /* Animations */
+        @keyframes scanline {
+            0% { top: 0; }
+            100% { top: 100%; }
+        }
+
+        .scanline {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(to bottom, transparent, #00ff00, transparent);
+            animation: scanline 6s linear infinite;
+            pointer-events: none;
+            opacity: 0.3;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 1920px) {
+            body {
+                transform: scale(calc(100vw / 1920));
+                transform-origin: top left;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="hud-container">
+        <!-- Header -->
+        <div class="hud-header">
+            <div class="system-title">⬡ TACTICAL AUTO ⬡</div>
+            <div class="status-indicators">
+                <div class="status-indicator">
+                    <div class="status-light" id="bleLight"></div>
+                    <span>BLE</span>
+                </div>
+                <div class="status-indicator">
+                    <div class="status-light" id="cameraLight"></div>
+                    <span>CAMERA</span>
+                </div>
+                <div class="status-indicator">
+                    <div class="status-light" id="yoloLight"></div>
+                    <span>YOLO</span>
+                </div>
+                <div class="status-indicator">
+                    <div class="status-light" id="autoLight"></div>
+                    <span>AUTO</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Left Panel -->
+        <div class="left-panel">
+            <!-- Telemetry -->
+            <div class="hud-panel">
+                <div class="panel-title">⚡ TELEMETRY</div>
+                <div class="telemetry-grid">
+                    <div class="telemetry-item">
+                        <div class="telemetry-label">Motor L</div>
+                        <div class="telemetry-value" id="motorLeft">0%</div>
+                    </div>
+                    <div class="telemetry-item">
+                        <div class="telemetry-label">Motor R</div>
+                        <div class="telemetry-value" id="motorRight">0%</div>
+                    </div>
+                    <div class="telemetry-item">
+                        <div class="telemetry-label">Direction</div>
+                        <div class="telemetry-value" id="direction">---</div>
+                    </div>
+                    <div class="telemetry-item">
+                        <div class="telemetry-label">FPS</div>
+                        <div class="telemetry-value" id="fps">0</div>
+                    </div>
+                    <div class="telemetry-item">
+                        <div class="telemetry-label">Speed</div>
+                        <div class="telemetry-value" id="speed">0</div>
+                    </div>
+                    <div class="telemetry-item">
+                        <div class="telemetry-label">Distance</div>
+                        <div class="telemetry-value" id="distance">---</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Connection -->
+            <div class="hud-panel">
+                <div class="panel-title">🔗 CONNECTION</div>
+                <button class="hud-button" id="connectBLE">CONNECT ESP32</button>
+                <button class="hud-button danger" id="disconnectBLE" disabled>DISCONNECT</button>
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Commands Sent</span>
+                        <span class="slider-value" id="commandCount">0</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="commandProgress" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Line Colors -->
+            <div class="hud-panel">
+                <div class="panel-title">🎨 LINE COLORS</div>
+                <div class="color-grid">
+                    <label class="color-option selected">
+                        <input type="checkbox" name="lineColor" value="white" checked style="display:none">
+                        <div class="color-preview" style="background: white;"></div>
+                        <span class="color-name">White</span>
+                    </label>
+                    <label class="color-option">
+                        <input type="checkbox" name="lineColor" value="black" style="display:none">
+                        <div class="color-preview" style="background: black;"></div>
+                        <span class="color-name">Black</span>
+                    </label>
+                    <label class="color-option">
+                        <input type="checkbox" name="lineColor" value="red" style="display:none">
+                        <div class="color-preview" style="background: red;"></div>
+                        <span class="color-name">Red</span>
+                    </label>
+                    <label class="color-option">
+                        <input type="checkbox" name="lineColor" value="green" style="display:none">
+                        <div class="color-preview" style="background: green;"></div>
+                        <span class="color-name">Green</span>
+                    </label>
+                    <label class="color-option">
+                        <input type="checkbox" name="lineColor" value="yellow" style="display:none">
+                        <div class="color-preview" style="background: yellow;"></div>
+                        <span class="color-name">Yellow</span>
+                    </label>
+                    <label class="color-option">
+                        <input type="checkbox" name="lineColor" value="blue" style="display:none">
+                        <div class="color-preview" style="background: blue;"></div>
+                        <span class="color-name">Blue</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Video Panel -->
+        <div class="video-panel">
+            <div id="videoContainer">
+                <video id="video" autoplay playsinline></video>
+                <canvas id="canvas"></canvas>
+                <div class="video-hud-overlay">
+                    <div class="crosshair"></div>
+                    <div class="detection-zone-indicator" id="zoneIndicator">LANE TRACKING: STANDBY</div>
+                    <div class="scanline"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel -->
+        <div class="right-panel">
+            <!-- Detection Modules -->
+            <div class="hud-panel">
+                <div class="panel-title">🎯 DETECTION MODULES</div>
+                <div class="toggle-container">
+                    <span class="toggle-label">Line Following</span>
+                    <div class="toggle-switch" id="toggleLineFollow"></div>
+                </div>
+                <div class="toggle-container">
+                    <span class="toggle-label">Traffic Signs</span>
+                    <div class="toggle-switch" id="toggleSigns"></div>
+                </div>
+                <div class="toggle-container">
+                    <span class="toggle-label">YOLO Detection</span>
+                    <div class="toggle-switch" id="toggleYOLO"></div>
+                </div>
+                <div class="toggle-container">
+                    <span class="toggle-label">Ultrasonic</span>
+                    <div class="toggle-switch" id="toggleUltrasonic"></div>
+                </div>
+                <button class="hud-button" id="autonomousMode">ENGAGE AUTONOMOUS</button>
+            </div>
+
+            <!-- Camera & Vision -->
+            <div class="hud-panel">
+                <div class="panel-title">📹 CAMERA</div>
+                <div class="controls-grid">
+                    <button class="hud-button" id="startCamera">START CAM</button>
+                    <button class="hud-button danger" id="stopCamera" disabled>STOP CAM</button>
+                </div>
+                
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Safe Distance</span>
+                        <span class="slider-value"><span id="safeDistanceValue">20</span> cm</span>
+                    </div>
+                    <input type="range" id="safeDistance" min="10" max="50" value="20">
+                </div>
+
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Follow Distance</span>
+                        <span class="slider-value"><span id="followDistanceValue">30</span> cm</span>
+                    </div>
+                    <input type="range" id="followDistance" min="20" max="60" value="30">
+                </div>
+
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Distance Calibration</span>
+                        <span class="slider-value"><span id="calibrationValue">1.0</span>x</span>
+                    </div>
+                    <input type="range" id="distanceCalibration" min="0.5" max="2.0" step="0.1" value="1.0">
+                </div>
+            </div>
+
+            <!-- Manual Control -->
+            <div class="hud-panel">
+                <div class="panel-title">🎮 MANUAL CONTROL</div>
+                <div class="direction-control">
+                    <button class="dir-btn" id="forward">▲</button>
+                    <button class="dir-btn" id="left">◄</button>
+                    <button class="dir-btn stop" id="stopBtn">■</button>
+                    <button class="dir-btn" id="right">►</button>
+                    <button class="dir-btn" id="backward">▼</button>
+                </div>
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Manual Speed</span>
+                        <span class="slider-value"><span id="manualSpeedValue">50</span>%</span>
+                    </div>
+                    <input type="range" id="manualSpeed" min="0" max="100" value="50">
+                </div>
+            </div>
+
+            <!-- Detections -->
+            <div class="hud-panel">
+                <div class="panel-title">👁️ ACTIVE DETECTIONS</div>
+                <div class="detection-display" id="detectionDisplay">
+                    <div style="color: rgba(0,255,0,0.5); text-align: center;">NO DETECTIONS</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="hud-footer">
+            <div class="hud-panel">
+                <div class="panel-title">📊 SYSTEM STATUS</div>
+                <div class="telemetry-grid">
+                    <div class="telemetry-item">
+                        <div class="telemetry-label">YOLO Model</div>
+                        <div class="telemetry-value" id="yoloModel" style="font-size: 14px;">Loading...</div>
+                    </div>
+                    <div class="telemetry-item">
+                        <div class="telemetry-label">Detections</div>
+                        <div class="telemetry-value" id="detectionCount">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="hud-panel" style="grid-column: span 2;">
+                <div class="panel-title">📋 EVENT LOG</div>
+                <div class="event-log" id="eventLog">
+                    <div class="log-entry success">
+                        <span class="log-timestamp">[00:00:00]</span>
+                        <span>SYSTEM INITIALIZED</span>
+                    </div>
+                </div>
+                <button class="hud-button" id="clearLog" style="margin-top: 10px; width: 100%;">CLEAR LOG</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load TensorFlow.js and YOLO -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3"></script>
+    
+    <script src="tactical_auto.js"></script>
+</body>
+</html>
